@@ -109,8 +109,17 @@ let labelIdCounter = 4000;
 
 const repos = new Map<string, Repo>();
 
+let cachedIsoSecond = -1;
+let cachedIso = '';
+
+/** ISO timestamp truncated to the second — memoized per second (identical output within one second). */
 export function nowIso(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const second = Math.floor(Date.now() / 1000);
+  if (second !== cachedIsoSecond) {
+    cachedIsoSecond = second;
+    cachedIso = new Date(second * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+  return cachedIso;
 }
 
 export function viewerSignature(): Signature {

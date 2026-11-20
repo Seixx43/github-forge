@@ -64,15 +64,29 @@ function percentEncode(value: string): string {
   return encodeURIComponent(value);
 }
 
+// owner/name never mutate in place (a rename builds a fresh Repo), so the path string is stable.
+const repoPathCache = new WeakMap<Repo, string>();
+
 function repoPathOf(repo: Repo): string {
-  return `/api/v3/repos/${percentEncode(repo.owner)}/${percentEncode(repo.name)}`;
+  let path = repoPathCache.get(repo);
+  if (path === undefined) {
+    path = `/api/v3/repos/${percentEncode(repo.owner)}/${percentEncode(repo.name)}`;
+    repoPathCache.set(repo, path);
+  }
+  return path;
 }
 
 // ---------------------------------------------------------------- JSON shapes
 
+// userJson output is a pure function of the login, and every caller treats it as read-only
+// (viewerJson spreads it; other callers embed it), so one shared object per login is safe.
+const userJsonCache = new Map<string, Record<string, unknown>>();
+
 function userJson(login: string, id = VIEWER_ID): Record<string, unknown> {
+  const cached = userJsonCache.get(login);
+  if (cached !== undefined) return cached;
   const safe = percentEncode(login);
-  return {
+  const shape: Record<string, unknown> = {
     login,
     id,
     node_id: `MDQ6VXNlcjEwMDA=`,
@@ -92,6 +106,8 @@ function userJson(login: string, id = VIEWER_ID): Record<string, unknown> {
     type: 'User',
     site_admin: false,
   };
+  userJsonCache.set(login, shape);
+  return shape;
 }
 
 export function viewerJson(): Record<string, unknown> {
@@ -127,6 +143,7 @@ function openIssueCount(repo: Repo): number {
 
 export function repoJson(repo: Repo): Record<string, unknown> {
   const path = repoPathOf(repo);
+  const openIssues = openIssueCount(repo);
   return {
     id: repo.id,
     node_id: Buffer.from(`Repository:${repo.id}`).toString('base64'),
@@ -196,7 +213,7 @@ export function repoJson(repo: Repo): Record<string, unknown> {
     mirror_url: null,
     archived: false,
     disabled: false,
-    open_issues_count: openIssueCount(repo),
+    open_issues_count: openIssues,
     license: null,
     allow_forking: true,
     is_template: false,
@@ -204,7 +221,7 @@ export function repoJson(repo: Repo): Record<string, unknown> {
     topics: [],
     visibility: repo.private ? 'private' : 'public',
     forks: 0,
-    open_issues: openIssueCount(repo),
+    open_issues: openIssues,
     watchers: 0,
     default_branch: DEFAULT_BRANCH,
   };

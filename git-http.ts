@@ -132,17 +132,19 @@ export function v0Advertisement(repo: Repo, service: 'git-upload-pack' | 'git-re
   return Buffer.concat(parts);
 }
 
-/** v2 capability advertisement for upload-pack. */
+/** v2 capability advertisement for upload-pack: constant bytes, built once and shared. */
+const V2_ADVERTISEMENT = Buffer.concat([
+  pktLine(`# service=git-upload-pack\n`),
+  pktLine(`version 2\n`),
+  pktLine(`agent=${AGENT}\n`),
+  pktLine(`ls-refs=unborn\n`),
+  pktLine(`fetch=shallow side-band-64k thin-pack ofs-delta\n`),
+  pktLine(`object-format=sha1\n`),
+  FLUSH_PKT,
+]);
+
 export function v2Advertisement(): Buffer {
-  return Buffer.concat([
-    pktLine(`# service=git-upload-pack\n`),
-    pktLine(`version 2\n`),
-    pktLine(`agent=${AGENT}\n`),
-    pktLine(`ls-refs=unborn\n`),
-    pktLine(`fetch=shallow side-band-64k thin-pack ofs-delta\n`),
-    pktLine(`object-format=sha1\n`),
-    FLUSH_PKT,
-  ]);
+  return V2_ADVERTISEMENT;
 }
 
 // ---------------------------------------------------------------- ls-refs (v2)
